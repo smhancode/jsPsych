@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>jsPsychAnnotationTool Example</title>
+    <script src="https://unpkg.com/jspsych"></script>
+    <!-- Load the published plugin package here, e.g.
+<script src="https://unpkg.com/plugin-annotation-tool"></script>
+<script src="../dist/index.browser.js"></script> -->
+    <script src="../dist/index.browser.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/jspsych/css/jspsych.css" />
+  </head>
+
+  <body></body>
+  <script>
+    const jsPsych = initJsPsych();
+
+    const trial = {
+      type: jsPsychAnnotationTool
+    };
+
+    jsPsych.run([trial])
+  </script>
+</html>
