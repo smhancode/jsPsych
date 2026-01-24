@@ -15,9 +15,15 @@
     const jsPsych = initJsPsych();
 
     const trial = {
-      type: jsPsychAnnotationTool
+      type: jsPsychAnnotationTool,
+      dataset: [
+        {"id": 0, "text": "i am text 1."},
+        {"id": 1, "text": "i am text 2."},
+        {"id": 2, "text": "i am text 3."}
+      ],
+      labels: ["not ironic", "ironic"]
     };
 
-    jsPsych.run([trial])
+    jsPsych.run([trial]);
   </script>
 </html>
