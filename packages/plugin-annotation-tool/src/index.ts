@@ -25,6 +25,7 @@ const info = <const>{
   data: {
     labelled_dataset: {
       type: ParameterType.OBJECT,
+      array: true,
     },
   },
   // When you run build on your plugin, citations will be generated here based on the information in the CITATION.cff file.
