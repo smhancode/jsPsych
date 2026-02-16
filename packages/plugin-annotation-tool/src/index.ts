@@ -15,12 +15,6 @@ const info = <const>{
       array: true,
       default: undefined,
     },
-    button_html: {
-      type: ParameterType.FUNCTION,
-      default: function (label: string, label_index: number) {
-        return `<button class="jspsych-button">${label}</button>`;
-      },
-    },
   },
   data: {
     labelled_dataset: {
@@ -52,129 +46,78 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
   trial(display_element: HTMLElement, trial: TrialType<Info>) {
     ////////////////////
-    let labelled_dataset = JSON.parse(JSON.stringify(trial.dataset)).sort(
-      (a: { id: number }, b: { id: number }) => a.id - b.id
-    );
+    let labelled_dataset = structuredClone(trial.dataset);
+    // let labelled_dataset = JSON.parse(JSON.stringify(trial.dataset));
     let cur_index = 0;
     ////////////////////
 
     ////////////////////
-    const nav_buttons_element = document.createElement("div");
-    nav_buttons_element.id = "jspsych-annotation-tool-nav-buttons";
-    nav_buttons_element.style.display = "flex";
-    nav_buttons_element.style.gap = "8px";
-    nav_buttons_element.style.alignItems = "center";
-    display_element.appendChild(nav_buttons_element);
+    const toolbar = document.createElement("div");
+    toolbar.id = "jspsych-annotation-tool-toolbar";
+    display_element.appendChild(toolbar);
+
+    const all_entries_button = document.createElement("button");
+    all_entries_button.innerHTML = "all entries";
+    // event listener
+    toolbar.appendChild(all_entries_button);
+
+    const guidelines_button = document.createElement("button");
+    guidelines_button.innerHTML = "guidelines";
+    // event listener
+    toolbar.appendChild(guidelines_button);
+
+    const keyboard_shortcuts_button = document.createElement("button");
+    keyboard_shortcuts_button.innerHTML = "keyboard_shortcuts";
+    // event listener
+    toolbar.appendChild(keyboard_shortcuts_button);
+
+    const cur_entry_number = document.createElement("progress");
+    cur_entry_number.innerHTML = "1 of 100";
+    // updating idk
+    // set attribute max = total num of entries
+    toolbar.appendChild(cur_entry_number);
 
     const prev_button = document.createElement("button");
     prev_button.innerHTML = "previous";
-    prev_button.addEventListener("click", () => {
-      if (cur_index > 0) {
-        cur_index--;
-        update_text();
-      }
-    });
-    nav_buttons_element.appendChild(prev_button);
+    // prev_button.addEventListener("click", () => {
+    //   if (cur_index > 0) {
+    //     cur_index--;
+    //     update_text();
+    //   }
+    // });
+    toolbar.appendChild(prev_button);
 
     const next_button = document.createElement("button");
     next_button.innerHTML = "next";
-    next_button.addEventListener("click", () => {
-      if (cur_index < trial.dataset.length - 1) {
-        cur_index++;
-        update_text();
-      }
-    });
-    nav_buttons_element.appendChild(next_button);
+    // next_button.addEventListener("click", () => {
+    //   if (cur_index < trial.dataset.length - 1) {
+    //     cur_index++;
+    //     update_text();
+    //   }
+    // });
+    toolbar.appendChild(next_button);
 
-    const annotator_name_input = document.createElement("input");
-    annotator_name_input.type = "text";
-    annotator_name_input.placeholder = "annotator name";
-    annotator_name_input.style.marginLeft = "10px";
-    nav_buttons_element.appendChild(annotator_name_input);
-
-    const finish_button = document.createElement("button");
-    finish_button.innerHTML = "finish";
-    finish_button.addEventListener("click", () => {
-      const trial_data = {
-        annotator: annotator_name_input.value,
-        labelled_dataset: labelled_dataset,
-      };
-      // this.jsPsych.data.getLastTrialData().localSave('json', `${trial_data.annotator}.json`);
-      const blob = new Blob([JSON.stringify([trial_data], null, 2)], { type: "application/json" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${trial_data.annotator}.json`;
-      link.click();
-    });
-    nav_buttons_element.appendChild(finish_button);
+    const save_button = document.createElement("button");
+    save_button.innerHTML = "save";
+    // event listener
+    toolbar.appendChild(save_button);
     ////////////////////
 
     ////////////////////
-    const label_select_element = document.createElement("select");
-    label_select_element.id = "jspsych-annotation-tool-label-select";
-
-    const placeholder_option = document.createElement("option");
-    placeholder_option.value = "";
-    placeholder_option.textContent = "-- select label --";
-    label_select_element.appendChild(placeholder_option);
-
-    trial.labels.forEach((label, label_index) => {
-      const option = document.createElement("option");
-      option.value = label_index.toString();
-      option.textContent = label;
-      label_select_element.appendChild(option);
-    });
-
-    label_select_element.addEventListener("change", () => {
-      const value = label_select_element.value;
-      if (value === "") {
-        delete labelled_dataset[cur_index].label;
-      } else {
-        labelled_dataset[cur_index].label = Number(value);
-      }
-    });
-    display_element.appendChild(label_select_element);
-    // const label_buttons_element = document.createElement("div");
-    // label_buttons_element.id = "jspsych-annotation-tool-label-buttons";
-    // for (const [label_index, label] of trial.labels.entries()) {
-    //   label_buttons_element.insertAdjacentHTML("beforeend", trial.button_html(label, label_index));
-    //   const button_element = label_buttons_element.lastChild as HTMLElement;
-    //   button_element.dataset.label = label_index.toString();
-    //   button_element.addEventListener("click", () => {
-    //     labelled_dataset[cur_index].label = label_index;
-    //   });
-    // }
-    // display_element.appendChild(label_buttons_element);
-
+    const labels_container = document.createElement("div");
+    labels_container.id = "jspsych-annotation-tool-label";
+    // for each label, create button
+    // event listener: when selected, change colour/text whatever & add/remove label to/from entry in labelled_dataset
+    display_element.appendChild(labels_container);
     ////////////////////
 
     ////////////////////
-    const text_element = document.createElement("div");
-    text_element.id = "jspsych-annotation-tool-text";
-    display_element.appendChild(text_element);
+    const entry_container = document.createElement("div");
+    entry_container.id = "jspsych-annotation-tool-entry";
+    display_element.appendChild(entry_container);
     ////////////////////
 
-    ////////////////////
-    const update_label_select = () => {
-      const label = labelled_dataset[cur_index].label;
-      label_select_element.value = label === undefined ? "" : label.toString();
-    };
-    ////////////////////
-
-    ////////////////////
-    const update_text = () => {
-      const entry = labelled_dataset[cur_index];
-      text_element.dataset.id = entry.id;
-      text_element.innerHTML = entry.text;
-
-      prev_button.disabled = cur_index === 0;
-      next_button.disabled = cur_index === labelled_dataset.length - 1;
-
-      update_label_select();
-    };
-    ////////////////////
-
-    update_text();
+    // update entry function
   }
 }
 
