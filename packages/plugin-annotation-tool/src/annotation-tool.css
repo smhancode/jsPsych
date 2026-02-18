@@ -1,0 +1,76 @@
+/* Toolbar at the top */
+#jspsych-annotation-tool-toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 50px; /* adjust as needed */
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    z-index: 1000; /* stay on top */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Side panel on the left, below toolbar */
+#jspsych-annotation-tool-all-items {
+    position: fixed;
+    top: 50px; /* start below toolbar */
+    left: 0;
+    width: 300px; /* adjust width */
+    bottom: 0;
+    background-color: #ffffff;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+    display: none; /* hidden by default */
+    z-index: 900; /* under toolbar */
+    padding: 10px;
+}
+
+/* Show panel */
+#jspsych-annotation-tool-all-items.show {
+    display: block;
+}
+
+/* Optional: style buttons inside side panel */
+#jspsych-annotation-tool-all-items button {
+    display: block;
+    width: 100%;
+    margin-bottom: 5px;
+    text-align: left;
+    padding: 5px;
+    border: 1px solid #ddd;
+    background-color: #fafafa;
+    cursor: pointer;
+}
+
+#jspsych-annotation-tool-all-items button:hover {
+    background-color: #eee;
+}
+
+/* Side panel buttons */
+#jspsych-annotation-tool-all-items button {
+    display: flex;
+    flex-direction: column; /* stack text and metadata */
+    width: 100%;
+    margin-bottom: 5px;
+    padding: 5px;
+    border: 1px solid #ddd;
+    background-color: #fafafa;
+    text-align: left;
+    cursor: pointer;
+}
+
+/* Main text bold */
+.jspsych-annotation-tool-item-from-all-text {
+    font-weight: bold;
+    margin-bottom: 2px; /* small gap to metadata */
+}
+
+/* Metadata smaller and not bold */
+.jspsych-annotation-tool-item-from-all-metadata {
+    font-size: 0.8em;
+    font-weight: normal;
+    color: #555;
+}
