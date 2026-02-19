@@ -56,10 +56,16 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
   trial(display_element: HTMLElement, trial: TrialType<Info>) {
     //////////////////// STYLESHEET START ////////////////////
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = trial.stylesheet;
-    document.head.appendChild(link);
+    const fa_link = document.createElement("link");
+    fa_link.rel = "stylesheet";
+    fa_link.href =
+      "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css";
+    document.head.appendChild(fa_link);
+
+    const css_link = document.createElement("link");
+    css_link.rel = "stylesheet";
+    css_link.href = trial.stylesheet;
+    document.head.appendChild(css_link);
     //////////////////// STYLESHEET END ////////////////////
 
     //////////////////// DATASET START ////////////////////
@@ -80,6 +86,14 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     const toolbar = document.createElement("div");
     toolbar.id = "jspsych-annotation-tool-toolbar";
     display_element.appendChild(toolbar);
+
+    const toolbar_left = document.createElement("div");
+    toolbar_left.classList.add("toolbar-section", "left");
+    toolbar.appendChild(toolbar_left);
+
+    const toolbar_right = document.createElement("div");
+    toolbar_right.classList.add("toolbar-section", "right");
+    toolbar.appendChild(toolbar_right);
 
     ///// METADATA STRING START /////
     function make_metadata_string(item: dataset_item_base, index: number, total: number): string {
@@ -130,7 +144,9 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     // button to show/hide all items side panel
     const all_items_button = document.createElement("button");
-    all_items_button.textContent = "all items";
+    const all_items_icon = document.createElement("icon");
+    all_items_icon.className = "fa fa-bars fa-fw fa-lg";
+    all_items_button.appendChild(all_items_icon);
     all_items_button.addEventListener("click", () => {
       if (all_items.style.display === "none") {
         all_items.style.display = "block";
@@ -138,7 +154,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
         all_items.style.display = "none";
       }
     });
-    toolbar.appendChild(all_items_button);
+    toolbar_left.appendChild(all_items_button);
     ////////// ALL ITEMS END //////////
 
     ///// POPUP START /////
@@ -184,20 +200,24 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     ////////// GUIDELINES START //////////
     const guidelines_button = document.createElement("button");
-    guidelines_button.textContent = "guidelines";
+    const guidelines_icon = document.createElement("icon");
+    guidelines_icon.className = "fa fa-book fa-fw fa-lg";
+    guidelines_button.appendChild(guidelines_icon);
     guidelines_button.addEventListener("click", () => {
       show_popup("Guidelines", trial.guidelines);
     });
-    toolbar.appendChild(guidelines_button);
+    toolbar_left.appendChild(guidelines_button);
     ////////// GUIDELINES END //////////
 
     ////////// KEYBOARD SHORTCUTS START //////////
     const keyboard_shortcuts_button = document.createElement("button");
-    keyboard_shortcuts_button.textContent = "keyboard shortcuts";
+    const keyboard_shortcuts_icon = document.createElement("icon");
+    keyboard_shortcuts_icon.className = "fa fa-key fa-fw fa-lg";
+    keyboard_shortcuts_button.appendChild(keyboard_shortcuts_icon);
     keyboard_shortcuts_button.addEventListener("click", () => {
       show_popup("Keyboard shortcuts", "A: all items\n");
     });
-    toolbar.appendChild(keyboard_shortcuts_button);
+    toolbar_left.appendChild(keyboard_shortcuts_button);
     ////////// KEYBOARD SHORTCUTS END //////////
 
     ////////// PROGRESS START //////////
@@ -224,7 +244,9 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     ////////// PREV NEXT START //////////
     const prev_button = document.createElement("button");
-    prev_button.textContent = "previous";
+    const prev_icon = document.createElement("icon");
+    prev_icon.className = "fa fa-chevron-left fa-fw fa-lg";
+    prev_button.appendChild(prev_icon);
     prev_button.disabled = cur_index === 0;
     prev_button.addEventListener("click", () => {
       if (cur_index > 0) {
@@ -232,24 +254,28 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
         update_text();
       }
     });
-    toolbar.appendChild(prev_button);
+    toolbar_right.appendChild(prev_button);
 
     const next_button = document.createElement("button");
-    next_button.textContent = "next";
+    const next_icon = document.createElement("icon");
+    next_icon.className = "fa fa-chevron-right fa-fw fa-lg";
+    next_button.appendChild(next_icon);
     next_button.addEventListener("click", () => {
-      if (cur_index < trial.labelled_dataset.length - 1) {
+      if (cur_index < labelled_dataset.length - 1) {
         cur_index++;
         update_text();
       }
     });
-    toolbar.appendChild(next_button);
+    toolbar_right.appendChild(next_button);
     ////////// PREV NEXT END //////////
 
     ////////// SAVE START //////////
     const save_button = document.createElement("button");
-    save_button.textContent = "save";
+    const save_icon = document.createElement("icon");
+    save_icon.className = "fa fa-save fa-fw fa-lg";
+    save_button.appendChild(save_icon);
     // event listener
-    toolbar.appendChild(save_button);
+    toolbar_right.appendChild(save_button);
     ////////// SAVE END //////////
     //////////////////// TOOLBAR END ////////////////////
 
@@ -279,13 +305,17 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
         } else {
           labelled_dataset[cur_index].label = label_index;
         }
-        label_buttons.push(label_button);
-        labels_container.appendChild(label_button);
-
+        update_text();
         update_label_buttons();
         update_progress();
       });
+
+      label_buttons.push(label_button);
+      labels_container.appendChild(label_button);
     });
+
+    update_label_buttons();
+    update_progress();
     //////////////////// LABELS END ////////////////////
 
     //////////////////// ITEM START ////////////////////
