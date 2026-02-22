@@ -77,6 +77,12 @@
     color: #666666;
 }
 
+#jspsych-annotation-tool-all-items button.is-selected {
+    border: 2px solid #beeaf9;
+    background-color: #3ec0ed;
+    color: white;
+}
+
 #jspsych-annotation-tool-all-items button:hover {
     background-color: #eeeeee;
 }
@@ -165,6 +171,11 @@
     font-size: small;
 }
 
+/* rapid mode */
+.rapid-mode-button.active icon {
+    color: #3ec0ed;
+}
+
 /* labels */
 #jspsych-annotation-tool-labels-container {
     position: fixed;
@@ -200,7 +211,7 @@
 .jspsych-annotation-tool-label-button.is-selected {
     background: #3ec0ed;
     color: white;
-    border-color: #3ec0ed;
+    border-color: #beeaf9;
     font-weight: 600;
 }
 

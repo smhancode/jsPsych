@@ -8,6 +8,7 @@ const info = <const>{
   name: "plugin-annotation-tool",
   version: version,
   parameters: {
+    // user can use provided css as is, modify it, or use own css
     stylesheet: {
       type: ParameterType.STRING,
       default: "../src/annotation-tool.css",
@@ -23,7 +24,20 @@ const info = <const>{
     },
     guidelines: {
       type: ParameterType.HTML_STRING,
-      default: "<p>This is a <bold>guidelines</bold> example.</p>",
+      default: "This is an example for guidelines.",
+    },
+    keyboard_shortcuts: {
+      type: ParameterType.OBJECT,
+      default: {
+        all_items: "a",
+        guidelines: "g",
+        keyboard_shortcuts: "h",
+        rapid_mode: "r",
+        prev: "j",
+        next: "k",
+        save: "s",
+        labels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      },
     },
   },
   data: {
@@ -56,12 +70,14 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
   trial(display_element: HTMLElement, trial: TrialType<Info>) {
     //////////////////// STYLESHEET START ////////////////////
+    // icons
     const fa_link = document.createElement("link");
     fa_link.rel = "stylesheet";
     fa_link.href =
       "https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css";
     document.head.appendChild(fa_link);
 
+    // css
     const css_link = document.createElement("link");
     css_link.rel = "stylesheet";
     css_link.href = trial.stylesheet;
@@ -70,14 +86,14 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     //////////////////// DATASET START ////////////////////
     // assumed structure of items in dataset
-    type dataset_item_base = {
+    type DatasetItemBase = {
       id: number;
       text: string;
       label?: number;
       [key: string]: any;
     };
 
-    let labelled_dataset = structuredClone(trial.dataset) as dataset_item_base[]; // deep clone
+    const labelled_dataset = structuredClone(trial.dataset) as DatasetItemBase[]; // deep clone
 
     let cur_index = 0;
     //////////////////// DATASET END ////////////////////
@@ -96,7 +112,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     toolbar.appendChild(toolbar_right);
 
     ///// METADATA STRING START /////
-    function make_metadata_string(item: dataset_item_base, index: number, total: number): string {
+    function make_metadata_string(item: DatasetItemBase, index: number, total: number): string {
       // basic metadata: position, id
       let metadata = `position: ${index + 1} of ${total} | id: ${item.id}`;
       // other metadata: other keys & values
@@ -115,15 +131,18 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     all_items.id = "jspsych-annotation-tool-all-items";
     all_items.style.display = "none";
     display_element.appendChild(all_items);
+
+    const all_items_buttons: HTMLButtonElement[] = [];
+
     // add each item as button w/ text & metadata to side panel
     labelled_dataset.forEach((item, index) => {
       // item button
-      const item_from_all = document.createElement("button");
+      const item_from_all_button = document.createElement("button");
       // text
       const item_from_all_text = document.createElement("span");
       item_from_all_text.classList.add("jspsych-annotation-tool-item-from-all-text");
       item_from_all_text.textContent = item.text;
-      item_from_all.appendChild(item_from_all_text);
+      item_from_all_button.appendChild(item_from_all_text);
       // metadata
       const item_from_all_metadata = document.createElement("span");
       item_from_all_metadata.classList.add("jspsych-annotation-tool-item-from-all-metadata");
@@ -132,17 +151,29 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
         index,
         labelled_dataset.length
       );
-      item_from_all.appendChild(item_from_all_metadata);
+      item_from_all_button.appendChild(item_from_all_metadata);
       // on item button click: show that item in main area & close side panel
-      item_from_all.addEventListener("click", () => {
+      item_from_all_button.addEventListener("click", () => {
         cur_index = index;
         update_text();
-        display_element.classList.remove("panel-open");
       });
-      all_items.appendChild(item_from_all);
+      all_items_buttons.push(item_from_all_button);
+      all_items.appendChild(item_from_all_button);
     });
 
-    // button to show/hide all items side panel
+    function update_all_items_highlight() {
+      all_items_buttons.forEach((button, index) => {
+        if (index === cur_index) {
+          button.classList.add("is-selected");
+          button.disabled = true;
+        } else {
+          button.classList.remove("is-selected");
+          button.disabled = false;
+        }
+      });
+    }
+
+    // button to show/hide all items
     const all_items_button = document.createElement("button");
     const all_items_icon = document.createElement("icon");
     all_items_icon.className = "fa fa-bars fa-fw fa-lg";
@@ -158,8 +189,8 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     ////////// ALL ITEMS END //////////
 
     ///// POPUP START /////
-    // used by guidelines, keyboard shortcuts
     // popup container that holds actual popup box
+    // used by guidelines, keyboard shortcuts
     const popup_container = document.createElement("div");
     popup_container.id = "jspsych-annotation-tool-popup-container";
     popup_container.style.display = "none";
@@ -210,37 +241,109 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     ////////// GUIDELINES END //////////
 
     ////////// KEYBOARD SHORTCUTS START //////////
+    // assumed/expected structure of keyboard shortcuts
+    type KeyboardShortcuts = {
+      all_items: string;
+      guidelines: string;
+      keyboard_shortcuts: string;
+      rapid_mode: string;
+      prev: string;
+      next: string;
+      save: string;
+      labels: string[];
+    };
+
+    const keyboard_shortcuts = trial.keyboard_shortcuts as KeyboardShortcuts;
+
+    function generate_shortcuts_table(keyboard_shortcuts: KeyboardShortcuts, labels: string[]) {
+      // build rows for normal keys, skip labels
+      // convert into array of key, value pairs
+      const key_rows = Object.entries(keyboard_shortcuts)
+        // remove labels key
+        .filter(([action_name]) => action_name !== "labels")
+        // for each action, key pair: create html table row, replace _ w/ space
+        .map(
+          ([action_name, keyboard_key]) =>
+            `<tr><td class="key">${keyboard_key}</td><td>${action_name.replace(
+              /_/g,
+              " "
+            )}</td></tr>`
+        )
+        .join("");
+
+      // build rows for label shortcuts
+      const label_rows = keyboard_shortcuts.labels
+        // for each keyboard key, label index pair: create html table row
+        .map((keyboard_key, label_index) => {
+          // set label name
+          const label_name = labels[label_index];
+          if (!label_name) {
+            return null;
+          }
+          // build html table row w/ keyboard key & label name
+          return `<tr><td class="key">${keyboard_key}</td><td>${label_name}</td></tr>`;
+        })
+        // remove nulls
+        .filter(Boolean)
+        .join("");
+
+      // combine everything into table
+      return `
+    <table class="shortcut-table">
+      ${key_rows}
+      <tr><th colspan="2">Labels</th></tr>
+      ${label_rows}
+    </table>
+  `;
+    }
+
     const keyboard_shortcuts_button = document.createElement("button");
     const keyboard_shortcuts_icon = document.createElement("icon");
-    keyboard_shortcuts_icon.className = "fa fa-key fa-fw fa-lg";
+    keyboard_shortcuts_icon.className = "fa fa-keyboard-o fa-fw fa-lg";
     keyboard_shortcuts_button.appendChild(keyboard_shortcuts_icon);
     keyboard_shortcuts_button.addEventListener("click", () => {
-      show_popup("Keyboard shortcuts", "A: all items\n");
+      show_popup("Keyboard shortcuts", generate_shortcuts_table(keyboard_shortcuts, trial.labels));
     });
     toolbar_left.appendChild(keyboard_shortcuts_button);
     ////////// KEYBOARD SHORTCUTS END //////////
 
     ////////// PROGRESS START //////////
+    // container
     const progress_container = document.createElement("div");
     progress_container.id = "jspsych-annotation-tool-progress-container";
     toolbar.appendChild(progress_container);
 
-    const progress = document.createElement("progress");
-    progress.max = labelled_dataset.length;
-    progress.value = 0;
-    progress_container.appendChild(progress);
+    // progress bar
+    const progress_bar = document.createElement("progress");
+    progress_bar.max = labelled_dataset.length;
+    progress_bar.value = 0;
+    progress_container.appendChild(progress_bar);
 
+    // progress text
     const progress_text = document.createElement("span");
     progress_container.appendChild(progress_text);
 
     const update_progress = () => {
       const labelled_count = labelled_dataset.filter((item) => item.label !== undefined).length;
-
-      progress.value = labelled_count;
-
+      progress_bar.value = labelled_count;
       progress_text.textContent = `${labelled_count} of ${labelled_dataset.length} labelled`;
     };
     ////////// PROGRESS END //////////
+
+    ////////// RAPID MODE START //////////
+    let rapid_mode = false;
+
+    const rapid_mode_button = document.createElement("button");
+    rapid_mode_button.className = "rapid-mode-button";
+    const rapid_mode_icon = document.createElement("icon");
+    rapid_mode_icon.className = "fa fa-bolt fa-fw fa-lg";
+    rapid_mode_button.appendChild(rapid_mode_icon);
+    rapid_mode_button.addEventListener("click", () => {
+      rapid_mode = !rapid_mode;
+      rapid_mode_button.classList.toggle("active", rapid_mode);
+    });
+    toolbar_right.appendChild(rapid_mode_button);
+    ////////// RAPID MODE END //////////
 
     ////////// PREV NEXT START //////////
     const prev_button = document.createElement("button");
@@ -274,12 +377,29 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     const save_icon = document.createElement("icon");
     save_icon.className = "fa fa-save fa-fw fa-lg";
     save_button.appendChild(save_icon);
-    // event listener
+    save_button.addEventListener("click", async () => {
+      this.jsPsych.pluginAPI.cancelAllKeyboardResponses();
+
+      // FOR TESTING START //
+      const trial_data = {
+        annotator: "example annotator",
+        labelled_dataset: labelled_dataset,
+      };
+      const blob = new Blob([JSON.stringify([trial_data], null, 2)], { type: "application/json" });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `${trial_data.annotator}.json`;
+      link.click();
+      // FOR TESTING END //
+
+      this.jsPsych.finishTrial(trial_data);
+    });
     toolbar_right.appendChild(save_button);
     ////////// SAVE END //////////
     //////////////////// TOOLBAR END ////////////////////
 
     //////////////////// LABELS START ////////////////////
+    // container
     const labels_container = document.createElement("div");
     labels_container.id = "jspsych-annotation-tool-labels-container";
     display_element.appendChild(labels_container);
@@ -294,9 +414,10 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
       });
     }
 
+    // create button for each label
     trial.labels.forEach((label, label_index) => {
       const label_button = document.createElement("button");
-      label_button.classList.add("jspsych-annotation-tool-label-button");
+      label_button.className = "jspsych-annotation-tool-label-button";
       label_button.textContent = label;
 
       label_button.addEventListener("click", () => {
@@ -313,9 +434,6 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
       label_buttons.push(label_button);
       labels_container.appendChild(label_button);
     });
-
-    update_label_buttons();
-    update_progress();
     //////////////////// LABELS END ////////////////////
 
     //////////////////// ITEM START ////////////////////
@@ -348,8 +466,79 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
       update_label_buttons();
       update_progress();
+      update_all_items_highlight();
     }
     //////////////////// ITEM END ////////////////////
+
+    //////////////////// ACTUAL KEYBOARD SHORTCUTS START ////////////////////
+    this.jsPsych.pluginAPI.getKeyboardResponse({
+      callback_function: (info) => {
+        // esc to close popup
+        if (info.key === "Escape" && popup_container.style.display !== "none") {
+          popup_container.click();
+          return;
+        }
+        // shortcuts deactivated when popup open
+        if (popup_container.style.display !== "none") {
+          return;
+        }
+        // shortcuts deactivated when typing
+        const element = document.activeElement as HTMLElement | null;
+        if (
+          element &&
+          (element.tagName === "INPUT" ||
+            element.tagName === "TEXTAREA" ||
+            element.isContentEditable)
+        ) {
+          return;
+        }
+
+        // actual keyboard shortcuts
+        if (info.key === keyboard_shortcuts.all_items) {
+          all_items_button.click();
+        }
+        if (info.key === keyboard_shortcuts.guidelines) {
+          guidelines_button.click();
+        }
+        if (info.key === keyboard_shortcuts.keyboard_shortcuts) {
+          keyboard_shortcuts_button.click();
+        }
+        if (info.key === keyboard_shortcuts.rapid_mode) {
+          rapid_mode_button.click();
+        }
+        if (info.key === keyboard_shortcuts.prev) {
+          prev_button.click();
+        }
+        if (info.key === keyboard_shortcuts.next) {
+          next_button.click();
+        }
+        if (info.key === keyboard_shortcuts.save) {
+          save_button.click();
+        }
+
+        // shortcuts 1-9 for labels
+        // check if key pressed is in the array that holds the keys for the labels 1/2
+        const label_index = keyboard_shortcuts.labels.indexOf(info.key);
+
+        // check if key pressed is in the array that holds the keys for the labels 2/2
+        if (label_index !== -1 && label_index < label_buttons.length) {
+          label_buttons[label_index].click();
+
+          // in rapid mode: label & move on to next item
+          if (rapid_mode && cur_index < labelled_dataset.length - 1) {
+            // extra time so that colour change of selected label is visible
+            setTimeout(() => {
+              cur_index++;
+              update_text();
+            }, 50);
+          }
+        }
+      },
+      valid_responses: "ALL_KEYS",
+      persist: true,
+      allow_held_key: false,
+    });
+    //////////////////// ACTUAL KEYBOARD SHORTCUTS END ////////////////////
 
     // initial
     update_text();
