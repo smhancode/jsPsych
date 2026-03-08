@@ -1,9 +1,13 @@
+* {
+    box-sizing: border-box;
+}
+
 #jspsych-annotation-tool-toolbar {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
-    height: 43px;
+    height: 3rem;
     z-index: 1000;
     display: flex;
     align-items: stretch;
@@ -19,13 +23,13 @@
 }
 
 .toolbar-section.right {
-    margin-left: auto; /* pushes it to the right */
+    margin-left: auto;
 }
 
 #jspsych-annotation-tool-toolbar button {
     height: 100%;
     border: none;
-    padding: 10px;
+    padding: 0 0.75rem;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -45,22 +49,22 @@
 /* all items */
 #jspsych-annotation-tool-all-items {
     position: fixed;
-    top: 5%;
+    top: 3rem;
     left: 0;
-    width: 25%;
+    width: clamp(220px, 22%, 320px);
     bottom: 0;
     border-right: 1px solid #dddddd;
     overflow-y: auto;
     z-index: 900;
-    padding: 10px;
+    padding: 0.75rem;
 }
 
 #jspsych-annotation-tool-all-items button {
     display: flex;
     flex-direction: column;
     width: 100%;
-    margin-bottom: 5px;
-    padding: 5px;
+    margin-bottom: 0.3rem;
+    padding: 0.3rem;
     border: 1px solid #dddddd;
     background-color: #fafafa;
     text-align: left;
@@ -69,11 +73,11 @@
 
 .jspsych-annotation-tool-item-from-all-text {
     white-space: pre-wrap;
-    margin-bottom: 2px;
+    margin-bottom: 0.15rem;
 }
 
 .jspsych-annotation-tool-item-from-all-metadata {
-    font-size: x-small;
+    font-size: 0.75rem;
     color: #666666;
 }
 
@@ -83,8 +87,14 @@
     color: white;
 }
 
+
+
 #jspsych-annotation-tool-all-items button:hover {
     background-color: #eeeeee;
+}
+
+#jspsych-annotation-tool-all-items button.is-selected:hover {
+    color: #3ec0ed;
 }
 
 /* popup */
@@ -102,24 +112,95 @@
 
 #jspsych-annotation-tool-popup-box {
     background: white;
-    padding: 20px;
-    max-width: 700px;
-    width: 80%;
+    padding: 1rem;
+    width: min(80%, 700px);
     max-height: 80vh;
     overflow-y: auto;
-    border-radius: 6px;
+    border-radius: 0.4rem;
 }
 
 #jspsych-annotation-tool-popup-title {
     font-weight: bold;
     text-align: left;
+    margin-bottom: 0.25rem;
 }
 
 #jspsych-annotation-tool-popup-text {
-    margin: 5px;
+    margin: 0.3rem;
     white-space: pre-wrap;
     text-align: left;
 }
+
+#jspsych-annotation-tool-popup-text p {
+    margin: 0; /* small top/bottom margin */
+}
+
+.shortcut-capture,
+.shortcut-capture-label {
+    width: 2.2rem;
+    height: 2.2rem;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    padding: 0;
+    border: 1px solid #dddddd;
+    border-radius: 6px;
+
+    font-family: monospace;
+    font-weight: bold;
+
+    background: #f2f2f2;
+    cursor: pointer;
+}
+
+.shortcut-capture span,
+.shortcut-capture-label span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+}
+
+
+
+
+.shortcut-capture:hover, .shortcut-capture-label:hover {
+    background: #e8e8e8;
+}
+
+.shortcut-table {
+    border-collapse: collapse;
+    margin: 0;
+
+}
+
+
+
+
+.shortcut-table td,
+.shortcut-table th {
+    padding: 0 20px;
+    line-height: 1;
+}
+
+.shortcut-table th {
+    font-weight: 600;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+
+#save-shortcuts-button {
+    border-radius: 4px;
+    padding: 0.3rem;
+    border: 1px solid #dddddd;
+    background-color: #fafafa;
+}
+
+
+
 
 /* progress */
 #jspsych-annotation-tool-progress-container {
@@ -128,10 +209,10 @@
     top: 50%;
     transform: translate(-50%, -50%);
     align-self: center;
-    width: 300px;
-    height: 24px;
+    width: min(40vw, 320px);
+    height: 1.5rem;
     border: 1px solid #cccccc;
-    border-radius: 12px;
+    border-radius: 0.75rem;
     background-color: #fafafa;
     overflow: hidden;
 }
@@ -148,14 +229,19 @@
     background: none;
 }
 
+#jspsych-annotation-tool-progress-container progress::-webkit-progress-bar {
+    background-color: #fafafa;
+    border-radius: 0.75rem;
+}
+
 #jspsych-annotation-tool-progress-container progress::-webkit-progress-value {
     background-color: #3ec0ed;
-    border-radius: 12px;
+    border-radius: 0.75rem;
 }
 
 #jspsych-annotation-tool-progress-container progress::-moz-progress-bar {
     background-color: #3ec0ed;
-    border-radius: 12px;
+    border-radius: 0.75rem;
 }
 
 #jspsych-annotation-tool-progress-container span {
@@ -168,7 +254,7 @@
     align-items: center;
     justify-content: center;
     pointer-events: none;
-    font-size: small;
+    font-size: 0.875rem;
 }
 
 /* rapid mode */
@@ -179,28 +265,28 @@
 /* labels */
 #jspsych-annotation-tool-labels-container {
     position: fixed;
-    top: 5%;
+    top: calc(3rem + 0.5rem);
     left: 50%;
     transform: translateX(-50%);
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
-    gap: 10px;
-    padding: 10px 16px;
+    gap: 0.6rem;
+    padding: 0.6rem 1rem;
     background: white;
     z-index: 950;
     width: max-content;
     max-width: 90%;
-    border-radius: 10px;
+    border-radius: 0.6rem;
 }
 
 .jspsych-annotation-tool-label-button {
-    padding: 6px 14px;
+    padding: 0.35rem 0.9rem;
     border: 1px solid #ccc;
     background: #f3f3f3;
     cursor: pointer;
-    border-radius: 999px;
-    font-size: 14px;
+    border-radius: 999rem;
+    font-size: 1rem;
     transition: all 0.15s ease;
 }
 
@@ -217,18 +303,19 @@
 
 /* item */
 #jspsych-annotation-tool-item-container {
-    width: 80%;
+    width: min(80%, 900px);
     margin: auto;
 }
 
 #jspsych-annotation-tool-item {
     white-space: pre-wrap;
     text-align: left;
+    font-size: 1.2rem;
 }
 
 #jspsych-annotation-tool-metadata {
-    margin-top: 30px;
-    font-size: 12px;
+    margin-top: 2rem;
+    font-size: 0.75rem;
     color: #666666;
     opacity: 0.8;
 }

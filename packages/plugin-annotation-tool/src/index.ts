@@ -24,7 +24,7 @@ const info = <const>{
     },
     guidelines: {
       type: ParameterType.HTML_STRING,
-      default: "This is an example for guidelines.",
+      default: "",
     },
     keyboard_shortcuts: {
       type: ParameterType.OBJECT,
@@ -39,14 +39,26 @@ const info = <const>{
         labels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
       },
     },
+    owner: {
+      type: ParameterType.STRING,
+      default: undefined,
+    },
+    repo: {
+      type: ParameterType.STRING,
+      default: undefined,
+    },
+    workflow: {
+      type: ParameterType.STRING,
+      default: "save-annotations.yml",
+    },
   },
   data: {
+    annotator: {
+      type: ParameterType.STRING,
+    },
     labelled_dataset: {
       type: ParameterType.OBJECT,
       array: true,
-    },
-    annotator: {
-      type: ParameterType.STRING,
     },
   },
   // When you run build on your plugin, citations will be generated here based on the information in the CITATION.cff file.
@@ -252,49 +264,156 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
       save: string;
       labels: string[];
     };
+    type KeyboardShortcutAction = Exclude<keyof KeyboardShortcuts, "labels">;
 
-    const keyboard_shortcuts = trial.keyboard_shortcuts as KeyboardShortcuts;
+    // const keyboard_shortcuts = trial.keyboard_shortcuts as KeyboardShortcuts;
+    const default_shortcuts = trial.keyboard_shortcuts as KeyboardShortcuts;
 
-    function generate_shortcuts_table(keyboard_shortcuts: KeyboardShortcuts, labels: string[]) {
-      // build rows for normal keys, skip labels
-      // convert into array of key, value pairs
-      const key_rows = Object.entries(keyboard_shortcuts)
-        // remove labels key
-        .filter(([action_name]) => action_name !== "labels")
-        // for each action, key pair: create html table row, replace _ w/ space
-        .map(
-          ([action_name, keyboard_key]) =>
-            `<tr><td class="key">${keyboard_key}</td><td>${action_name.replace(
-              /_/g,
-              " "
-            )}</td></tr>`
-        )
-        .join("");
+    const saved_shortcuts = localStorage.getItem("local_keyboard_shortcuts");
 
-      // build rows for label shortcuts
-      const label_rows = keyboard_shortcuts.labels
-        // for each keyboard key, label index pair: create html table row
-        .map((keyboard_key, label_index) => {
-          // set label name
-          const label_name = labels[label_index];
-          if (!label_name) {
-            return null;
-          }
-          // build html table row w/ keyboard key & label name
-          return `<tr><td class="key">${keyboard_key}</td><td>${label_name}</td></tr>`;
+    const keyboard_shortcuts: KeyboardShortcuts = saved_shortcuts
+      ? JSON.parse(saved_shortcuts)
+      : structuredClone(default_shortcuts);
+
+    function shortcut_already_used(key: string): boolean {
+      const normal_keys = Object.entries(keyboard_shortcuts)
+        .filter(([k]) => k !== "labels")
+        .map(([, v]) => v as string);
+
+      const label_keys = keyboard_shortcuts.labels;
+
+      return [...normal_keys, ...label_keys].includes(key);
+    }
+
+    //   function generate_shortcuts_table(keyboard_shortcuts: KeyboardShortcuts, labels: string[]) {
+    //     // build rows for normal keys, skip labels
+    //     // convert into array of key, value pairs
+    //     const key_rows = Object.entries(keyboard_shortcuts)
+    //       // remove labels key
+    //       .filter(([action_name]) => action_name !== "labels")
+    //       // for each action, key pair: create html table row, replace _ w/ space
+    //       .map(
+    //         ([action_name, keyboard_key]) =>
+    //           `<tr><td class="key">${keyboard_key}</td><td>${action_name.replace(
+    //             /_/g,
+    //             " "
+    //           )}</td></tr>`
+    //       )
+    //       .join("");
+    //
+    //     // build rows for label shortcuts
+    //     const label_rows = keyboard_shortcuts.labels
+    //       // for each keyboard key, label index pair: create html table row
+    //       .map((keyboard_key, label_index) => {
+    //         // set label name
+    //         const label_name = labels[label_index];
+    //         if (!label_name) {
+    //           return null;
+    //         }
+    //         // build html table row w/ keyboard key & label name
+    //         return `<tr><td class="key">${keyboard_key}</td><td>${label_name}</td></tr>`;
+    //       })
+    //       // remove nulls
+    //       .filter(Boolean)
+    //       .join("");
+    //
+    //     // combine everything into table
+    //     return `
+    //   <table class="shortcut-table">
+    //     ${key_rows}
+    //     <tr><th colspan="2">Labels</th></tr>
+    //     ${label_rows}
+    //   </table>
+    // `;
+    //   }
+    function generate_shortcuts_editor(shortcuts: KeyboardShortcuts, labels: string[]) {
+      const rows = Object.entries(shortcuts)
+        .filter(([action]) => action !== "labels")
+        .map(([action, key]) => {
+          return `
+      <tr>
+        <td>${action.replace(/_/g, " ")}</td>
+        <td>
+          <button class="shortcut-capture" data-action="${action}">
+            <span>${key}</span>
+          </button>
+        </td>
+      </tr>`;
         })
-        // remove nulls
-        .filter(Boolean)
         .join("");
 
-      // combine everything into table
+      const label_rows = shortcuts.labels
+        .map((key, i) => {
+          const label = labels[i];
+          if (!label) return "";
+          return `
+      <tr>
+        <td>${label}</td>
+        <td>
+          <button class="shortcut-capture-label" data-index="${i}">
+            <span>${key}</span>
+          </button>
+        </td>
+      </tr>`;
+        })
+        .join("");
+
       return `
-    <table class="shortcut-table">
-      ${key_rows}
-      <tr><th colspan="2">Labels</th></tr>
-      ${label_rows}
-    </table>
+  <table class="shortcut-table">
+    ${rows}
+    <tr><th colspan="2">Labels</th></tr>
+    ${label_rows}
+  </table>
+  <p>Click a shortcut and press a new key.</p>
+  <button id="save-shortcuts-button">save shortcuts</button>
   `;
+    }
+
+    function enable_shortcut_capture() {
+      const buttons = document.querySelectorAll(".shortcut-capture");
+      buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          btn.querySelector("span")!.textContent = "...";
+          const listener = (e: KeyboardEvent) => {
+            e.preventDefault();
+            const key = e.key.toLowerCase();
+            if (shortcut_already_used(key)) return;
+            const action = (btn as HTMLElement).dataset.action as KeyboardShortcutAction;
+            keyboard_shortcuts[action] = key;
+            btn.querySelector("span")!.textContent = key;
+            document.removeEventListener("keydown", listener);
+          };
+          document.addEventListener("keydown", listener, { once: true });
+        });
+      });
+      const label_buttons = document.querySelectorAll(".shortcut-capture-label");
+      label_buttons.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          btn.querySelector("span")!.textContent = "...";
+          const listener = (e: KeyboardEvent) => {
+            e.preventDefault();
+            const key = e.key.toLowerCase();
+            if (shortcut_already_used(key)) return;
+            const index = Number((btn as HTMLElement).dataset.index);
+            keyboard_shortcuts.labels[index] = key;
+            btn.querySelector("span")!.textContent = key;
+            document.removeEventListener("keydown", listener);
+          };
+          document.addEventListener("keydown", listener, { once: true });
+        });
+      });
+    }
+
+    function enable_shortcut_save() {
+      const save_btn = document.getElementById("save-shortcuts-button");
+      save_btn?.addEventListener("click", () => {
+        localStorage.setItem("local_keyboard_shortcuts", JSON.stringify(keyboard_shortcuts));
+        const originalText = save_btn.textContent;
+        save_btn.textContent = "saved!";
+        setTimeout(() => {
+          save_btn.textContent = originalText;
+        }, 1500);
+      });
     }
 
     const keyboard_shortcuts_button = document.createElement("button");
@@ -302,7 +421,9 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     keyboard_shortcuts_icon.className = "fa fa-keyboard-o fa-fw fa-lg";
     keyboard_shortcuts_button.appendChild(keyboard_shortcuts_icon);
     keyboard_shortcuts_button.addEventListener("click", () => {
-      show_popup("Keyboard shortcuts", generate_shortcuts_table(keyboard_shortcuts, trial.labels));
+      show_popup("Keyboard shortcuts", generate_shortcuts_editor(keyboard_shortcuts, trial.labels));
+      enable_shortcut_capture();
+      enable_shortcut_save();
     });
     toolbar_left.appendChild(keyboard_shortcuts_button);
     ////////// KEYBOARD SHORTCUTS END //////////
@@ -377,22 +498,108 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     const save_icon = document.createElement("icon");
     save_icon.className = "fa fa-save fa-fw fa-lg";
     save_button.appendChild(save_icon);
-    save_button.addEventListener("click", async () => {
-      this.jsPsych.pluginAPI.cancelAllKeyboardResponses();
+    save_button.addEventListener("click", () => {
+      show_popup(
+        "Save to GitHub",
+        `<label for="name">Name:</label>
+<input id="name" name="name">
+<label for="token">Token:</label>
+<input type="password" id="token" name="token">
+<button id="save-and-continue">save and continue</button>
+<button id="save-and-end">save and end</button>`
+      );
+
+      async function save_to_github(end_after: boolean) {
+        const token_input = document.getElementById("github-token") as HTMLInputElement;
+        const name_input = document.getElementById("annotator-name") as HTMLInputElement;
+
+        const token = token_input?.value.trim();
+        let annotator = name_input?.value.trim();
+
+        if (!token) {
+          alert("Please enter a GitHub token.");
+          return;
+        }
+
+        if (!annotator) {
+          alert("Please enter an annotator name.");
+          return;
+        }
+
+        // sanitize annotator name for branch usage
+        annotator = annotator.replace(/\s+/g, "-");
+
+        const owner = trial.owner.trim();
+        const repo = trial.repo.trim();
+        const workflow = trial.workflow.trim();
+
+        const trial_data = {
+          annotator: annotator,
+          labelled_dataset: labelled_dataset,
+        };
+
+        try {
+          const res = await fetch(
+            `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`,
+            {
+              method: "POST",
+              headers: {
+                Authorization: `Bearer ${token}`,
+                Accept: "application/vnd.github+json",
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                ref: "main",
+                inputs: {
+                  annotator: annotator,
+                  dataset: JSON.stringify(trial_data, null, 2),
+                },
+              }),
+            }
+          );
+
+          if (!res.ok) {
+            const text = await res.text();
+            throw new Error(text);
+          }
+
+          alert("Annotations successfully saved to GitHub.");
+
+          if (end_after) {
+            this.jsPsych.pluginAPI.cancelAllKeyboardResponses();
+
+            this.jsPsych.finishTrial({
+              saved_to_github: true,
+              annotator: annotator,
+            });
+          }
+        } catch (err) {
+          console.error(err);
+          alert("Failed to trigger GitHub workflow. Check console for details.");
+        }
+      }
+
+      const save_and_continue = document.getElementById("save-and-continue");
+      save_and_continue?.addEventListener("click", async () => {
+        await save_to_github(false);
+      });
+
+      const save_and_end = document.getElementById("save-and-end");
+      save_and_end?.addEventListener("click", async () => {
+        await save_to_github(true);
+      });
 
       // FOR TESTING START //
-      const trial_data = {
-        annotator: "example annotator",
-        labelled_dataset: labelled_dataset,
-      };
-      const blob = new Blob([JSON.stringify([trial_data], null, 2)], { type: "application/json" });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `${trial_data.annotator}.json`;
-      link.click();
+      // const trial_data = {
+      //   annotator: "example annotator",
+      //   labelled_dataset: labelled_dataset,
+      // };
+      // const blob = new Blob([JSON.stringify([trial_data], null, 2)], { type: "application/json" });
+      // const link = document.createElement("a");
+      // link.href = URL.createObjectURL(blob);
+      // link.download = `${trial_data.annotator}.json`;
+      // link.click();
       // FOR TESTING END //
-
-      this.jsPsych.finishTrial(trial_data);
     });
     toolbar_right.appendChild(save_button);
     ////////// SAVE END //////////

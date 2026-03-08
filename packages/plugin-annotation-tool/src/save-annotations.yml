@@ -1,0 +1,83 @@
+name: Save annotations
+
+on:
+  workflow_dispatch:
+    inputs:
+      annotator:
+        description: "Annotator name"
+        required: true
+        type: string
+      dataset:
+        description: "Labelled dataset JSON"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  submit:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure git
+        run: |
+          git config user.name "annotation-bot"
+          git config user.email "annotation-bot@users.noreply.github.com"
+
+      - name: Prepare branch
+        run: |
+          BRANCH="${{ inputs.annotator }}"
+
+          if git ls-remote --exit-code --heads origin $BRANCH; then
+            echo "Branch exists"
+            git checkout -b $BRANCH origin/$BRANCH
+          else
+            echo "Creating branch"
+            git checkout -b $BRANCH
+          fi
+
+      - name: Create timestamped file
+        run: |
+          mkdir -p annotations
+
+          DATE=$(date +'%Y-%m-%d')
+          TIME=$(date +'%H-%M-%S')
+
+          FILE="annotations/${DATE}_${TIME}_${{ inputs.annotator }}.json"
+
+          echo '${{ inputs.dataset }}' > "$FILE"
+
+          echo "FILE=$FILE" >> $GITHUB_ENV
+
+      - name: Commit changes
+        run: |
+          git add $FILE
+          git commit -m "annotations from ${{ inputs.annotator }} ($FILE)" || echo "No changes"
+
+      - name: Push branch
+        run: |
+          BRANCH="${{ inputs.annotator }}"
+          git push origin $BRANCH
+
+      - name: Create pull request if needed
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="${{ inputs.annotator }}"
+
+          if gh pr view $BRANCH >/dev/null 2>&1; then
+            echo "PR already exists"
+          else
+            gh pr create \
+              --title "Annotations from ${{ inputs.annotator }}" \
+              --body "Automatic submission from annotation tool." \
+              --base main \
+              --head $BRANCH
+          fi
