@@ -357,8 +357,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     <tr><th colspan="2">Labels</th></tr>
     ${label_rows}
   </table>
-  <p>Click a shortcut and press a new key.</p>
-  <button id="save-shortcuts-button">save shortcuts</button>
+  <p>Click on a shortcut and press a new key. Changes are saved automatically.</p>
   `;
     }
 
@@ -379,6 +378,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
             const action = (btn as HTMLElement).dataset.action as KeyboardShortcutAction;
             keyboard_shortcuts[action] = key;
             btn.querySelector("span")!.textContent = key;
+            localStorage.setItem("local_keyboard_shortcuts", JSON.stringify(keyboard_shortcuts));
             document.removeEventListener("keydown", listener);
           };
           document.addEventListener("keydown", listener, { once: true });
@@ -400,22 +400,11 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
             const index = Number((btn as HTMLElement).dataset.index);
             keyboard_shortcuts.labels[index] = key;
             btn.querySelector("span")!.textContent = key;
+            localStorage.setItem("local_keyboard_shortcuts", JSON.stringify(keyboard_shortcuts));
             document.removeEventListener("keydown", listener);
           };
           document.addEventListener("keydown", listener, { once: true });
         });
-      });
-    }
-
-    function enable_shortcut_save() {
-      const save_btn = document.getElementById("save-shortcuts-button");
-      save_btn?.addEventListener("click", () => {
-        localStorage.setItem("local_keyboard_shortcuts", JSON.stringify(keyboard_shortcuts));
-        const originalText = save_btn.textContent;
-        save_btn.textContent = "saved!";
-        setTimeout(() => {
-          save_btn.textContent = originalText;
-        }, 1500);
       });
     }
 
@@ -426,7 +415,6 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     keyboard_shortcuts_button.addEventListener("click", () => {
       show_popup("Keyboard shortcuts", generate_shortcuts_editor(keyboard_shortcuts, trial.labels));
       enable_shortcut_capture();
-      enable_shortcut_save();
     });
     toolbar_left.appendChild(keyboard_shortcuts_button);
     ////////// KEYBOARD SHORTCUTS END //////////
