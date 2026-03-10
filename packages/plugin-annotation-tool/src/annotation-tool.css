@@ -81,7 +81,7 @@
     color: #666666;
 }
 
-#jspsych-annotation-tool-all-items button.is-selected {
+#jspsych-annotation-tool-all-items button.highlighted {
     border: 2px solid #beeaf9;
     background-color: #3ec0ed;
     color: white;
@@ -93,7 +93,7 @@
     background-color: #eeeeee;
 }
 
-#jspsych-annotation-tool-all-items button.is-selected:hover {
+#jspsych-annotation-tool-all-items button.highlighted:hover {
     color: #3ec0ed;
 }
 
