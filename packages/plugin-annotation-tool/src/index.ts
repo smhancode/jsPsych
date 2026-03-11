@@ -9,11 +9,11 @@ const info = <const>{
     /**
      * stylesheet
      * use default as is, modify it, or use own stylesheet
-     * must be in jspsych/
+     * preferably in jspsych/
      */
     stylesheet: {
       type: ParameterType.STRING,
-      default: "annotation-tool.css",
+      default: "jspsych/annotation-tool.css",
     },
     /**
      * dataset to annotate, as JSON array
@@ -170,7 +170,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     // regular stylesheet
     const stylesheetLink = document.createElement("link");
     stylesheetLink.rel = "stylesheet";
-    stylesheetLink.href = "jspsych/" + trial.stylesheet.trim();
+    stylesheetLink.href = trial.stylesheet.trim();
     document.head.appendChild(stylesheetLink);
     //////////////////// STYLESHEETS < ////////////////////
 
@@ -253,10 +253,22 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
      */
     function showDialog(title: string, text: string) {
       dialogTitle.textContent = title;
-      dialogBody.innerHTML = text;
+      dialogBody.innerHTML = `
+      ${text}
+      <p class="jspsych-annotation-tool-dialog-note">Press Escape to close.</p>
+      `;
 
       if (!dialog.open) {
         dialog.showModal();
+
+        // in order to have nothing focused: focus dialog and then remove focus
+        dialog.setAttribute("tabindex", "-1");
+        dialog.focus();
+        dialog.blur();
+
+        // remove focus in general just in case
+        const firstFocusedElem = dialog.querySelector<HTMLElement>("input, button, textarea");
+        firstFocusedElem?.blur();
       }
     }
     ///// DIALOG < /////
@@ -311,7 +323,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     // all items button in toolbar
     const allItemsButton = document.createElement("button");
     const allItemsIcon = document.createElement("i");
-    allItemsIcon.className = "fa fa-bars fa-fw fa-lg";
+    allItemsIcon.className = "fa fa-bars fa-fw";
     // on all items button click: show/hide side panel
     allItemsButton.addEventListener("click", () => {
       if (allItemsContainer.style.display === "none") {
@@ -327,7 +339,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     ////////// > GUIDELINES //////////
     const guidelinesButton = document.createElement("button");
     const guidelinesIcon = document.createElement("i");
-    guidelinesIcon.className = "fa fa-book fa-fw fa-lg";
+    guidelinesIcon.className = "fa fa-book fa-fw";
     guidelinesButton.appendChild(guidelinesIcon);
     guidelinesButton.addEventListener("click", () => {
       showDialog("Guidelines", trial.guidelines ?? "No guidelines provided.");
@@ -363,6 +375,9 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     Object.entries(keyboardShortcuts).forEach(([k, v]) => {
       if (k === "labels") {
         keyboardShortcuts.labels = keyboardShortcuts.labels.map((x) => x.toLowerCase());
+        /* since default has label keys 1-9 and one might use them with fewer labels:
+          make sure only the first x label keys are used, x is num of labels */
+        keyboardShortcuts.labels = keyboardShortcuts.labels.slice(0, trial.labels.length);
       } else {
         keyboardShortcuts[k as KeyboardShortcutsAction] = (v as string).toLowerCase();
       }
@@ -418,16 +433,16 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
       // put table together
       table += `</table>
-    <p>Click on a shortcut and press a new key. Changes are saved automatically.</p>`;
+    <p>Click on a shortcut and press a new key. Changes are saved automatically. Shortcuts are stored locally.</p>`;
 
       return table;
     }
 
     /**
      * helper for next function
-     * check if the key user wants to assign to a shortcut
+     * check if the key one wants to assign to a shortcut
      * is already being used for another shortcut
-     * @param key the key user wants to assign to a shortcut
+     * @param key the key one wants to assign to a shortcut
      */
     function keyUsed(key: string): boolean {
       key = key.toLowerCase();
@@ -458,7 +473,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
           const keyboardListener = (e: KeyboardEvent) => {
             e.preventDefault();
             const newKey = e.key.toLowerCase();
-            // if key already in use, warn user and 'quit'
+            // if key already in use, warn and 'quit'
             if (keyUsed(newKey)) {
               alert(`Key "${newKey}" is already assigned to another shortcut.`);
               span.textContent = oldKey;
@@ -478,6 +493,8 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
                 JSON.stringify(keyboardShortcuts)
               );
             }
+            startKeyboardShortcuts();
+
             document.removeEventListener("keydown", keyboardListener);
           };
 
@@ -488,7 +505,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     const keyboardShortcutsButton = document.createElement("button");
     const keyboardShortcutsIcon = document.createElement("i");
-    keyboardShortcutsIcon.className = "fa fa-keyboard-o fa-fw fa-lg";
+    keyboardShortcutsIcon.className = "fa fa-keyboard-o fa-fw";
     keyboardShortcutsButton.appendChild(keyboardShortcutsIcon);
     keyboardShortcutsButton.addEventListener("click", () => {
       showDialog("Keyboard shortcuts", makeShortcutsTable(keyboardShortcuts, trial.labels));
@@ -613,7 +630,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     const rapidModeButton = document.createElement("button");
     rapidModeButton.className = "rapid-mode-button";
     const rapidModeIcon = document.createElement("i");
-    rapidModeIcon.className = "fa fa-bolt fa-fw fa-lg";
+    rapidModeIcon.className = "fa fa-bolt fa-fw";
     rapidModeButton.appendChild(rapidModeIcon);
     if (trial.multi_labels) {
       rapidModeButton.disabled = true;
@@ -629,7 +646,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     ////////// > PREV NEXT //////////
     const prevButton = document.createElement("button");
     const prevIcon = document.createElement("i");
-    prevIcon.className = "fa fa-chevron-left fa-fw fa-lg";
+    prevIcon.className = "fa fa-chevron-left fa-fw";
     prevButton.appendChild(prevIcon);
     prevButton.disabled = curIdx === 0;
     prevButton.addEventListener("click", () => {
@@ -642,7 +659,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
     const nextButton = document.createElement("button");
     const nextIcon = document.createElement("i");
-    nextIcon.className = "fa fa-chevron-right fa-fw fa-lg";
+    nextIcon.className = "fa fa-chevron-right fa-fw";
     nextButton.appendChild(nextIcon);
     nextButton.addEventListener("click", () => {
       if (curIdx < annotatedDataset.length - 1) {
@@ -656,23 +673,31 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     ////////// > SAVE //////////
     const saveButton = document.createElement("button");
     const saveIcon = document.createElement("i");
-    saveIcon.className = "fa fa-save fa-fw fa-lg";
+    saveIcon.className = "fa fa-save fa-fw";
     saveButton.appendChild(saveIcon);
     // get annotator name and token from local storage if existent
     saveButton.addEventListener("click", () => {
       showDialog(
         "Save to GitHub",
-        `<label for="annotatorName">Name:</label>
+        `<div class="name-token-container">
+         <div class="row">
+         <label for="annotatorName">Name:</label>
          <input id="annotatorName" name="annotatorName" value="${
            localStorage.getItem(LOCAL_STORAGE_PREFIX + "AnnotatorName") ?? ""
          }">
+         </div>
+         <div class="row">
          <label for="token">Token:</label>
          <input type="password" id="token" name="token" value="${
            localStorage.getItem(LOCAL_STORAGE_PREFIX + "Token") ?? ""
          }">
-         <p>Annotator name and token are saved locally.</p>
+         </div>
+         </div>
+         <p>Name and token are saved locally.</p>
+         <div class="save-buttons">
          <button id="save-and-continue">save and continue</button>
-         <button id="save-and-end">save and end</button>`
+         <button id="save-and-end">save and end</button>
+         </div>`
       );
 
       /**
@@ -757,7 +782,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
         } catch (error) {
           console.error(error);
           alert(
-            "Failed to save annotations to GitHub." + "Check your input. Check console for details."
+            "Failed to save annotations to GitHub. Check your input. Check console for details."
           );
         }
       }
@@ -874,7 +899,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
       // - update progress bar
       const numLabelledItems = annotatedDataset.filter((item) => item.label !== undefined).length;
       progressBar.value = numLabelledItems;
-      progressText.textContent = `${numLabelledItems} of ${annotatedDataset.length} labelled`;
+      progressText.textContent = `${numLabelledItems} of ${annotatedDataset.length} annotated`;
 
       // - update 'all items' highlighting, highlights cur item in side panel
       itemButtons.forEach((itemButton, itemButtonIdx) => {

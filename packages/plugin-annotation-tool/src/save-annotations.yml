@@ -22,7 +22,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
@@ -33,15 +33,17 @@ jobs:
 
       - name: Prepare branch
         run: |
-          BRANCH="${{ inputs.annotator }}"
+          BRANCH=$(echo "${{ inputs.annotator }}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-')
 
-          if git ls-remote --exit-code --heads origin $BRANCH; then
-            echo "Branch exists"
+          if git show-ref --verify --quiet refs/heads/$BRANCH; then
+            git checkout $BRANCH
+          elif git ls-remote --exit-code --branches origin $BRANCH; then
             git checkout -b $BRANCH origin/$BRANCH
           else
-            echo "Creating branch"
             git checkout -b $BRANCH
           fi
+          
+          echo "BRANCH=$BRANCH" >> $GITHUB_ENV
 
       - name: Create timestamped file
         run: |
@@ -50,7 +52,7 @@ jobs:
           DATE=$(date +'%Y-%m-%d')
           TIME=$(date +'%H-%M-%S')
 
-          FILE="annotations/${DATE}_${TIME}_${{ inputs.annotator }}.json"
+          FILE="annotations/${DATE}_${TIME}_${BRANCH}.json"
 
           echo '${{ inputs.dataset }}' > "$FILE"
 
@@ -58,20 +60,17 @@ jobs:
 
       - name: Commit changes
         run: |
-          git add $FILE
+          git add "$FILE"
           git commit -m "annotations from ${{ inputs.annotator }} ($FILE)" || echo "No changes"
 
       - name: Push branch
         run: |
-          BRANCH="${{ inputs.annotator }}"
           git push origin $BRANCH
 
       - name: Create pull request if needed
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          BRANCH="${{ inputs.annotator }}"
-
           if gh pr view $BRANCH >/dev/null 2>&1; then
             echo "PR already exists"
           else
