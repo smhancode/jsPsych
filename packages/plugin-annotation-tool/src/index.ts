@@ -9,7 +9,7 @@ const info = <const>{
     /**
      * stylesheet
      * use default as is, modify it, or use own stylesheet
-     * preferably in jspsych/
+     * when using original stylesheet, have it in jspsych/
      */
     stylesheet: {
       type: ParameterType.STRING,
@@ -150,7 +150,7 @@ type Info = typeof info;
  *            - saving to github (uses dialog)
  * - labels
  * - item (uses metadata string)
- * - function that updates ui (update item, prev next buttons, label buttons,
+ * - function that updates gui (update item, prev next buttons, label buttons,
  *   progress bar, highlighting of 'all items', save annotated dataset and current item locally)
  */
 class AnnotationToolPlugin implements JsPsychPlugin<Info> {
@@ -324,7 +324,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
       // on item button click: show that item in main area & close side panel
       itemButton.addEventListener("click", () => {
         curIdx = itemIdx;
-        updateUi();
+        updateGui();
       });
       itemButtons.push(itemButton);
       allItemsContainer.appendChild(itemButton);
@@ -453,7 +453,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
 
       // put table together
       table += `</table>
-    <p>Click on a shortcut and press a new key. Changes are automatically saved locally.</p>`;
+    <p>Click on a shortcut and press a new key. Changes are saved automatically and locally.</p>`;
 
       return table;
     }
@@ -596,7 +596,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
               // extra time so that colour change of selected label is visible
               setTimeout(() => {
                 curIdx++;
-                updateUi();
+                updateGui();
               }, 50);
             }
           }
@@ -672,7 +672,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     prevButton.addEventListener("click", () => {
       if (curIdx > 0) {
         curIdx--;
-        updateUi();
+        updateGui();
       }
     });
     toolbarR.appendChild(prevButton);
@@ -684,7 +684,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     nextButton.addEventListener("click", () => {
       if (curIdx < annotatedDataset.length - 1) {
         curIdx++;
-        updateUi();
+        updateGui();
       }
     });
     toolbarR.appendChild(nextButton);
@@ -713,7 +713,9 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
          }">
          </div>
          </div>
-         <p>Name may only contain the letters A-Z, numbers, spaces, and hyphens (-). It must not start or end with a hyphen.</p>
+         <p>Name may only contain the letters A-Z, numbers, spaces, and hyphens (-).
+         It must not start or end with a hyphen.</p>
+         <p>Use the access token your organiser shared with you.</p>
          <p>Name and token are saved locally.</p>
          <div class="save-buttons">
          <button id="save-and-continue">save and continue</button>
@@ -721,140 +723,137 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
          </div>`
       );
 
-      // used below
       const saveAndContinue = document.getElementById("save-and-continue") as HTMLButtonElement;
-      const saveAndEnd = document.getElementById("save-and-end") as HTMLButtonElement;
-
-      /**
-       * save annotated dataset to github via github workflow
-       * workflow creates branch with annotator name,
-       * commits annotations/YYYY-MM-DD_HH-MM-SS_annotator.json, content is data below,
-       * creates pull request (into default branch)
-       *
-       * no github account needed, only token from repository owner
-       * token must have these permissions in the repository:
-       * read access to metadata, read and write access to actions
-       * @param endAfter whether to close annotation tool after saving
-       */
-      async function saveToGitHub(endAfter: boolean) {
-        // disable save buttons during saving process
-        saveAndContinue.disabled = true;
-        saveAndEnd.disabled = true;
-
-        const tokenInput = document.getElementById("token") as HTMLInputElement;
-        const nameInput = document.getElementById("annotatorName") as HTMLInputElement;
-        const token = tokenInput?.value.trim();
-        const annotatorRaw = nameInput?.value.trim();
-
-        if (!annotatorRaw) {
-          saveAndContinue.disabled = false;
-          saveAndEnd.disabled = false;
-          return alert("Please enter an annotator name.");
-        }
-
-        if (
-          !/^[A-Za-z0-9 -]+$/.test(annotatorRaw) ||
-          annotatorRaw.startsWith("-") ||
-          annotatorRaw.endsWith("-")
-        ) {
-          saveAndContinue.disabled = false;
-          saveAndEnd.disabled = false;
-          return alert(
-            "Name may only contain the letters A-Z, numbers, spaces, and hyphens (-)." +
-              "It must not start or end with a hyphen."
-          );
-        }
-
-        // branch name replaces space with -
-        const annotatorBranch = annotatorRaw
-          .toLowerCase()
-          .replace(/\s+/g, "-")
-          .replace(/-+/g, "-")
-          .replace(/^-+|-+$/g, "");
-
-        if (!token) {
-          saveAndContinue.disabled = false;
-          saveAndEnd.disabled = false;
-          return alert("Please enter a GitHub token.");
-        }
-
-        localStorage.setItem(LOCAL_STORAGE_PREFIX + "AnnotatorName", annotatorRaw);
-        localStorage.setItem(LOCAL_STORAGE_PREFIX + "Token", token);
-
-        annotatedDataset.forEach((item) => {
-          if (Array.isArray(item.label)) {
-            // sort labels
-            item.label = item.label.map(Number).sort((a, b) => a - b);
-          }
-        });
-
-        // data to save
-        const trialData = {
-          annotator: annotatorRaw,
-          annotated_dataset: annotatedDataset,
-        };
-
-        try {
-          const response = await fetch(
-            `https://api.github.com/repos/${(trial.owner ?? "").trim()}/${(
-              trial.repo ?? ""
-            ).trim()}/actions/workflows/${trial.workflow.trim()}/dispatches`,
-            {
-              method: "POST",
-              headers: {
-                Authorization: `Bearer ${token}`,
-                Accept: "application/vnd.github+json",
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                ref: "main",
-                inputs: {
-                  annotator: annotatorBranch,
-                  dataset: JSON.stringify(trialData, null, 2),
-                },
-              }),
-            }
-          );
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(errorText);
-          }
-
-          saveAndContinue.disabled = false;
-          saveAndEnd.disabled = false;
-
-          const successMsg = endAfter
-            ? "Annotations successfully saved to GitHub. Quitting. Reload to reopen."
-            : "Annotations successfully saved to GitHub. You may continue annotating.";
-
-          alert(successMsg);
-
-          if (endAfter) {
-            jsPsych.pluginAPI.cancelAllKeyboardResponses();
-            jsPsych.finishTrial(trialData);
-          }
-        } catch (error) {
-          console.error(error);
-
-          saveAndContinue.disabled = false;
-          saveAndEnd.disabled = false;
-
-          alert(
-            "Failed to save annotations to GitHub. Check your input. Check console for details."
-          );
-        }
-      }
-
       saveAndContinue.addEventListener("click", async () => {
         await saveToGitHub(false);
       });
-
+      const saveAndEnd = document.getElementById("save-and-end") as HTMLButtonElement;
       saveAndEnd.addEventListener("click", async () => {
         await saveToGitHub(true);
       });
     });
     toolbarR.appendChild(saveButton);
+
+    /**
+     * save annotated dataset to github via github workflow
+     * workflow creates branch with annotator name,
+     * commits annotations/YYYY-MM-DD_HH-MM-SS_annotator.json, content is data below,
+     * creates pull request (into default branch)
+     *
+     * no github account needed, only token from repository owner
+     * token must have these permissions in the repository:
+     * read access to metadata, read and write access to actions
+     * @param endAfter whether to close annotation tool after saving
+     */
+    async function saveToGitHub(endAfter: boolean) {
+      const saveAndContinue = document.getElementById("save-and-continue") as HTMLButtonElement;
+      const saveAndEnd = document.getElementById("save-and-end") as HTMLButtonElement;
+      // disable save buttons during saving process
+      saveAndContinue.disabled = true;
+      saveAndEnd.disabled = true;
+
+      const tokenInput = document.getElementById("token") as HTMLInputElement;
+      const nameInput = document.getElementById("annotatorName") as HTMLInputElement;
+      const token = tokenInput?.value.trim();
+      const annotatorRaw = nameInput?.value.trim();
+
+      if (!annotatorRaw) {
+        saveAndContinue.disabled = false;
+        saveAndEnd.disabled = false;
+        return alert("Please enter an annotator name.");
+      }
+
+      if (
+        !/^[A-Za-z0-9 -]+$/.test(annotatorRaw) ||
+        annotatorRaw.startsWith("-") ||
+        annotatorRaw.endsWith("-")
+      ) {
+        saveAndContinue.disabled = false;
+        saveAndEnd.disabled = false;
+        return alert(
+          "Name may only contain the letters A-Z, numbers, spaces, and hyphens (-). " +
+            "It must not start or end with a hyphen."
+        );
+      }
+
+      // branch name replaces space with -
+      const annotatorBranch = annotatorRaw
+        .toLowerCase()
+        .replace(/\s+/g, "-")
+        .replace(/-+/g, "-")
+        .replace(/^-+|-+$/g, "");
+
+      if (!token) {
+        saveAndContinue.disabled = false;
+        saveAndEnd.disabled = false;
+        return alert("Please enter a GitHub token.");
+      }
+
+      localStorage.setItem(LOCAL_STORAGE_PREFIX + "AnnotatorName", annotatorRaw);
+      localStorage.setItem(LOCAL_STORAGE_PREFIX + "Token", token);
+
+      annotatedDataset.forEach((item) => {
+        if (Array.isArray(item.label)) {
+          // sort labels
+          item.label = item.label.map(Number).sort((a, b) => a - b);
+        }
+      });
+
+      // data to save
+      const trialData = {
+        annotator: annotatorRaw,
+        annotated_dataset: annotatedDataset,
+      };
+
+      try {
+        const response = await fetch(
+          `https://api.github.com/repos/${(trial.owner ?? "").trim()}/${(
+            trial.repo ?? ""
+          ).trim()}/actions/workflows/${trial.workflow.trim()}/dispatches`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/vnd.github+json",
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              ref: "main",
+              inputs: {
+                annotator: annotatorBranch,
+                dataset: JSON.stringify(trialData, null, 2),
+              },
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(errorText);
+        }
+
+        saveAndContinue.disabled = false;
+        saveAndEnd.disabled = false;
+
+        const successMsg = endAfter
+          ? "Annotations successfully saved to GitHub. Quitting. Reload to reopen."
+          : "Annotations successfully saved to GitHub. You may continue annotating.";
+
+        alert(successMsg);
+
+        if (endAfter) {
+          jsPsych.pluginAPI.cancelAllKeyboardResponses();
+          jsPsych.finishTrial(trialData);
+        }
+      } catch (error) {
+        console.error(error);
+
+        saveAndContinue.disabled = false;
+        saveAndEnd.disabled = false;
+
+        alert("Failed to save annotations to GitHub. Check your input. Check console for details.");
+      }
+    }
     ////////// SAVE < //////////
     //////////////////// TOOLBAR < ////////////////////
 
@@ -903,7 +902,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
             item.label = labelIdx;
           }
         }
-        updateUi();
+        updateGui();
       });
       labelButtons.push(labelButton);
       labelsContainer.appendChild(labelButton);
@@ -931,7 +930,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
      * update item, prev next buttons, label buttons, progress bar, highlighting of 'all items',
      * save annotated dataset and current item locally
      */
-    function updateUi() {
+    function updateGui() {
       // - update item
       const item = annotatedDataset[curIdx];
       itemText.textContent = item.text;
@@ -978,7 +977,7 @@ class AnnotationToolPlugin implements JsPsychPlugin<Info> {
     //////////////////// UPDATE < ////////////////////
 
     // initial
-    updateUi();
+    updateGui();
     startKeyboardShortcuts();
   }
 }

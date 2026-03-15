@@ -33,7 +33,7 @@ jobs:
 
       - name: Prepare branch
         run: |
-          BRANCH=$(echo "${{ inputs.annotator }}" | tr '[:upper:]' '[:lower:]' | tr -cs 'a-z0-9-' '-')
+          BRANCH="${{ inputs.annotator }}"
 
           if git show-ref --verify --quiet refs/heads/$BRANCH; then
             git checkout $BRANCH
